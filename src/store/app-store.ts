@@ -23,6 +23,7 @@ interface AppState {
   rejectShop: (id: string) => void;
   updateCommission: (id: string, rate: number) => void;
   updateShopPassword: (id: string, password: string) => void;
+  addShop: (shop: Shop) => void;
 
   // Settlements
   settlements: Settlement[];
@@ -193,6 +194,33 @@ export const useAppStore = create<AppState>((set) => ({
         sh.id === id ? { ...sh, password } : sh
       ),
     }));
+  },
+  addShop: (shop) => {
+    // Persist to Supabase shop_owner table
+    import("@/lib/supabase").then(({ supabase }) => {
+      supabase
+        .from("shop_owner")
+        .insert({
+          owner_id: shop.id,
+          shop_name: shop.shopName,
+          owner_name: shop.ownerName,
+          phone: shop.phone,
+          email: shop.email,
+          address: shop.address,
+          latitude: 12.9716,
+          longitude: 77.5946,
+          commission_rate: shop.commissionRate,
+          opening_time: "08:00",
+          closing_time: "22:00",
+          status: shop.status === "approved" ? "active" : "inactive",
+          password: shop.password || "partner123",
+          emoji: "🏪",
+        })
+        .then(({ error }) => {
+          if (error) console.error("Error inserting shop to Supabase:", error);
+        });
+    });
+    set((s) => ({ shops: [shop, ...s.shops] }));
   },
 
   settlements: mockSettlements,

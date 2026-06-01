@@ -1,12 +1,13 @@
 "use client";
 import { useState } from "react";
-import { CheckCircle, XCircle, FileText, Star, TrendingUp } from "lucide-react";
+import { CheckCircle, XCircle, FileText, Star, TrendingUp, Plus } from "lucide-react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { useAppStore } from "@/store/app-store";
 import { toast } from "@/components/ui/Toaster";
 import { formatCurrency } from "@/lib/utils";
 import type { Shop, ShopStatus } from "@/types";
 import { motion, AnimatePresence } from "framer-motion";
+import { AddShopModal } from "@/components/modals/AddShopModal";
 
 const TABS: { key: ShopStatus; label: string }[] = [
   { key: "pending",  label: "Pending" },
@@ -165,6 +166,7 @@ function ShopCard({ shop, onApprove, onReject, onCommissionChange, onUpdatePassw
 export default function ShopsPage() {
   const { shops, approveShop, rejectShop, updateCommission, updateShopPassword } = useAppStore();
   const [activeTab, setActiveTab] = useState<ShopStatus>("pending");
+  const [modalOpen, setModalOpen] = useState(false);
 
   const filtered = shops.filter((s) => s.status === activeTab);
   const counts = {
@@ -175,30 +177,41 @@ export default function ShopsPage() {
 
   return (
     <div className="space-y-4">
-      {/* Tabs */}
-      <div className="flex gap-0 border-b border-[#2e3454]">
-        {TABS.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`px-5 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-all ${
-              activeTab === tab.key
-                ? "border-blue-500 text-blue-400"
-                : "border-transparent text-[#9aa0c0] hover:text-white"
-            }`}
-          >
-            {tab.label}
-            <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
-              tab.key === "pending" && counts.pending > 0
-                ? "bg-amber-500/20 text-amber-400"
-                : activeTab === tab.key
-                  ? "bg-blue-500/20"
-                  : "bg-[#22263a]"
-            }`}>
-              {counts[tab.key]}
-            </span>
-          </button>
-        ))}
+      {/* Header / Tabs / Actions */}
+      <div className="flex items-center justify-between border-b border-[#2e3454] flex-wrap gap-3 pb-0">
+        {/* Tabs */}
+        <div className="flex gap-0">
+          {TABS.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`px-5 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-all ${
+                activeTab === tab.key
+                  ? "border-blue-500 text-blue-400"
+                  : "border-transparent text-[#9aa0c0] hover:text-white"
+              }`}
+            >
+              {tab.label}
+              <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
+                tab.key === "pending" && counts.pending > 0
+                  ? "bg-amber-500/20 text-amber-400"
+                  : activeTab === tab.key
+                    ? "bg-blue-500/20"
+                    : "bg-[#22263a]"
+              }`}>
+                {counts[tab.key]}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {/* Onboard Supermarket button */}
+        <button
+          onClick={() => setModalOpen(true)}
+          className="btn-primary flex items-center gap-2 text-xs py-1.5 px-3 rounded-lg font-bold mb-2"
+        >
+          <Plus size={14} /> Onboard Supermarket
+        </button>
       </div>
 
       {/* Shop cards */}
@@ -227,6 +240,9 @@ export default function ShopsPage() {
           )}
         </AnimatePresence>
       </div>
+
+      {/* Onboarding Modal */}
+      <AddShopModal open={modalOpen} onClose={() => setModalOpen(false)} />
     </div>
   );
 }
