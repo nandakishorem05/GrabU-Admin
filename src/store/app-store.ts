@@ -81,13 +81,52 @@ export const useAppStore = create<AppState>((set) => ({
 
   products: mockProducts,
   setProducts: (products) => set({ products }),
-  addProduct: (product) => set((s) => ({ products: [product, ...s.products] })),
+  addProduct: (product) => {
+    // Persist to Supabase master_product table
+    import("@/lib/supabase").then(({ supabase }) => {
+      supabase
+        .from("master_product")
+        .insert({
+          product_id: product.id,
+          name: product.name,
+          category: product.category,
+          brand: product.brand,
+          unit: product.unit,
+          base_price: product.basePrice,
+          barcode: product.barcode,
+          is_active: product.status === "active",
+          emoji: product.images?.[0] || "📦",
+          description: `Brand: ${product.brand}`,
+        })
+        .then(({ error }) => {
+          if (error) console.error("Error inserting product to Supabase:", error);
+        });
+    });
+    set((s) => ({ products: [product, ...s.products] }));
+  },
   updateProduct: (id, updates) =>
     set((s) => ({
       products: s.products.map((p) => (p.id === id ? { ...p, ...updates } : p)),
     })),
-  deleteProduct: (id) =>
-    set((s) => ({ products: s.products.filter((p) => p.id !== id) })),
+  deleteProduct: (id) => {
+    // Delete from Supabase — shop_product first (FK), then master_product
+    import("@/lib/supabase").then(({ supabase }) => {
+      supabase
+        .from("shop_product")
+        .delete()
+        .eq("product_id", id) // Foreign key in shop_product table is product_id, not master_product_id!
+        .then(() => {
+          supabase
+            .from("master_product")
+            .delete()
+            .eq("product_id", id)
+            .then(({ error }) => {
+              if (error) console.error("Error deleting product from Supabase:", error);
+            });
+        });
+    });
+    set((s) => ({ products: s.products.filter((p) => p.id !== id) }));
+  },
 
   shops: mockShops,
   setShops: (shops) => set({ shops }),

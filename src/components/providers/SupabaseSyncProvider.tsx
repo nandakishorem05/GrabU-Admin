@@ -1,11 +1,55 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAppStore } from "@/store/app-store";
 import type { Order, OrderStatus } from "@/types";
 
+// ─── Browser Notification Helper ────────────────────────────────────────────
+async function requestNotificationPermission() {
+  if (typeof window === "undefined" || !("Notification" in window)) return;
+  if (Notification.permission === "default") {
+    await Notification.requestPermission();
+  }
+}
+
+function sendBrowserNotification(title: string, body: string, icon = "/favicon.ico") {
+  if (typeof window === "undefined" || !("Notification" in window)) return;
+  if (Notification.permission !== "granted") return;
+  const notif = new Notification(title, { body, icon, badge: "/favicon.ico" });
+  // Auto-close after 6 seconds
+  setTimeout(() => notif.close(), 6000);
+}
+
+function playNotificationSound() {
+  try {
+    // Generate a short chime using Web Audio API (no external file needed)
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+    const oscillator = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    oscillator.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(880, ctx.currentTime);
+    oscillator.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.3);
+    gainNode.gain.setValueAtTime(0.4, ctx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+    oscillator.start(ctx.currentTime);
+    oscillator.stop(ctx.currentTime + 0.5);
+  } catch (_) {}
+}
+
+// ─── Component ───────────────────────────────────────────────────────────────
 export function SupabaseSyncProvider({ children }: { children: React.ReactNode }) {
+  // Track order IDs we've already notified about to avoid duplicate alerts
+  const knownOrderIds = useRef<Set<string>>(new Set());
+  const isFirstLoad = useRef(true);
+
   useEffect(() => {
+    // Request browser notification permission on mount
+    requestNotificationPermission();
+
     const syncData = async () => {
       try {
         // 1. Fetch & Sync Shops
@@ -31,23 +75,23 @@ export function SupabaseSyncProvider({ children }: { children: React.ReactNode }
           useAppStore.getState().setShops(mappedShops);
         }
 
-        // 2. Fetch & Sync Products
-        const { data: dbSP } = await supabase.from("shop_product").select("*, master_product(*)");
-        if (dbSP) {
-          const mappedProducts = dbSP.map((sp: any) => ({
-            id: sp.shop_product_id,
-            name: sp.master_product?.name || "Product",
-            category: sp.master_product?.category || "Staples",
-            brand: sp.master_product?.brand || "Brand",
-            unit: (sp.master_product?.unit || "kg") as any,
-            basePrice: Number(sp.master_product?.base_price || sp.selling_price),
-            offerPrice: Number(sp.selling_price),
-            barcode: sp.master_product?.barcode || "",
-            sku: sp.shop_product_id,
-            stockQuantity: sp.stock_quantity || 0,
-            status: sp.is_listed ? ("active" as const) : ("inactive" as const),
-            images: [sp.master_product?.emoji || "📦"],
-            createdAt: sp.created_at
+        // 2. Fetch & Sync Products (Master Catalogue)
+        const { data: dbMP } = await supabase.from("master_product").select("*");
+        if (dbMP) {
+          const mappedProducts = dbMP.map((mp: any) => ({
+            id: mp.product_id,
+            name: mp.name,
+            category: mp.category,
+            brand: mp.brand,
+            unit: (mp.unit || "kg") as any,
+            basePrice: Number(mp.base_price),
+            offerPrice: Number(mp.base_price),
+            barcode: mp.barcode || "",
+            sku: mp.product_id,
+            stockQuantity: 100, // Master catalogue default
+            status: mp.is_active ? ("active" as const) : ("inactive" as const),
+            images: [mp.emoji || "📦"],
+            createdAt: mp.created_at
           }));
           useAppStore.getState().setProducts(mappedProducts);
         }
@@ -56,7 +100,7 @@ export function SupabaseSyncProvider({ children }: { children: React.ReactNode }
         const { data: dbCust } = await supabase.from("customer").select("*, customer_address(*), order(*)");
         if (dbCust) {
           const mappedCustomers = dbCust.map((c: any) => {
-            const addresses = (c.customer_address || []).map((a: any) => 
+            const addresses = (c.customer_address || []).map((a: any) =>
               `${a.house_flat_no || ""}, ${a.area || ""}, ${a.city || ""} – ${a.pincode || ""}`
             );
             const orders = c.order || [];
@@ -83,7 +127,7 @@ export function SupabaseSyncProvider({ children }: { children: React.ReactNode }
       }
     };
 
-    const syncOrders = async () => {
+    const syncOrders = async (isRealTimeUpdate = false) => {
       try {
         const { data: dbOrders } = await supabase
           .from("order")
@@ -111,8 +155,8 @@ export function SupabaseSyncProvider({ children }: { children: React.ReactNode }
             return {
               id: o.order_id,
               customerId: o.customer_id,
-              customerName: o.customer?.name || "Ananya Nair",
-              customerPhone: o.customer?.phone || "9123456780",
+              customerName: o.customer?.name || "Customer",
+              customerPhone: o.customer?.phone || "",
               shopId: o.owner_id,
               shopName: o.shop_name,
               items,
@@ -130,6 +174,26 @@ export function SupabaseSyncProvider({ children }: { children: React.ReactNode }
             };
           });
           useAppStore.getState().setOrders(mappedOrders);
+
+          // 🔔 Fire browser notifications for new or changed orders
+          if (!isFirstLoad.current || isRealTimeUpdate) {
+            for (const order of mappedOrders) {
+              if (!knownOrderIds.current.has(order.id) && order.status === "pending") {
+                knownOrderIds.current.add(order.id);
+                playNotificationSound();
+                sendBrowserNotification(
+                  "🛒 New Order Received!",
+                  `${order.customerName} placed an order • ₹${order.total.toFixed(0)}`
+                );
+              } else {
+                knownOrderIds.current.add(order.id);
+              }
+            }
+          } else {
+            // Seed known IDs on first load so we don't re-notify for existing orders
+            mappedOrders.forEach((o) => knownOrderIds.current.add(o.id));
+            isFirstLoad.current = false;
+          }
         }
       } catch (err) {
         console.error("Order sync error:", err);
@@ -146,7 +210,7 @@ export function SupabaseSyncProvider({ children }: { children: React.ReactNode }
         "postgres_changes",
         { event: "*", schema: "public", table: "order" },
         () => {
-          syncOrders();
+          syncOrders(true);
         }
       )
       .subscribe();

@@ -61,6 +61,9 @@ html {
   .input-base {
     @apply bg-[#22263a] border border-[#2e3454] rounded-lg px-3 py-2 text-[#f0f2ff] text-sm outline-none focus:border-blue-500 transition-colors;
   }
+  .form-label {
+    @apply text-[10px] font-semibold text-[#6b7290] tracking-wider uppercase block mb-1;
+  }
   .btn-primary {
     @apply bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm px-4 py-2 rounded-lg transition-colors cursor-pointer;
   }
