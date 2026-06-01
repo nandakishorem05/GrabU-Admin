@@ -111,11 +111,11 @@ export function AddProductModal({ open, onClose }: AddProductModalProps) {
   return (
     <AnimatePresence>
       {open && (
-        <>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50"
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm"
             onClick={handleClose}
           />
 
@@ -125,7 +125,7 @@ export function AddProductModal({ open, onClose }: AddProductModalProps) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 16 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[620px] max-w-[96vw] max-h-[92vh] overflow-y-auto bg-[#13151f] border border-[#2e3454] rounded-2xl shadow-2xl"
+            className="relative z-10 w-[620px] max-w-full max-h-[88vh] overflow-y-auto bg-[#13151f] border border-[#2e3454] rounded-2xl shadow-2xl flex flex-col"
           >
             {/* Header */}
             <div className="flex items-center gap-3 px-6 py-4 border-b border-[#1e2235] sticky top-0 bg-[#13151f] z-10">
@@ -319,7 +319,7 @@ export function AddProductModal({ open, onClose }: AddProductModalProps) {
               </div>
             </form>
           </motion.div>
-        </>
+        </div>
       )}
     </AnimatePresence>
   );
