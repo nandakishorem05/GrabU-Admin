@@ -22,6 +22,7 @@ interface AppState {
   approveShop: (id: string, commissionRate: number) => void;
   rejectShop: (id: string) => void;
   updateCommission: (id: string, rate: number) => void;
+  updateShopPassword: (id: string, password: string) => void;
 
   // Settlements
   settlements: Settlement[];
@@ -90,24 +91,70 @@ export const useAppStore = create<AppState>((set) => ({
 
   shops: mockShops,
   setShops: (shops) => set({ shops }),
-  approveShop: (id, commissionRate) =>
+  approveShop: (id, commissionRate) => {
+    import("@/lib/supabase").then(({ supabase }) => {
+      supabase
+        .from("shop_owner")
+        .update({ status: "active", commission_rate: commissionRate })
+        .eq("owner_id", id)
+        .then(({ error }) => {
+          if (error) console.error("Error approving shop in Supabase:", error);
+        });
+    });
     set((s) => ({
       shops: s.shops.map((sh) =>
         sh.id === id ? { ...sh, status: "approved", commissionRate } : sh
       ),
-    })),
-  rejectShop: (id) =>
+    }));
+  },
+  rejectShop: (id) => {
+    import("@/lib/supabase").then(({ supabase }) => {
+      supabase
+        .from("shop_owner")
+        .update({ status: "inactive" })
+        .eq("owner_id", id)
+        .then(({ error }) => {
+          if (error) console.error("Error rejecting shop in Supabase:", error);
+        });
+    });
     set((s) => ({
       shops: s.shops.map((sh) =>
         sh.id === id ? { ...sh, status: "rejected" } : sh
       ),
-    })),
-  updateCommission: (id, rate) =>
+    }));
+  },
+  updateCommission: (id, rate) => {
+    import("@/lib/supabase").then(({ supabase }) => {
+      supabase
+        .from("shop_owner")
+        .update({ commission_rate: rate })
+        .eq("owner_id", id)
+        .then(({ error }) => {
+          if (error) console.error("Error updating commission in Supabase:", error);
+        });
+    });
     set((s) => ({
       shops: s.shops.map((sh) =>
         sh.id === id ? { ...sh, commissionRate: rate } : sh
       ),
-    })),
+    }));
+  },
+  updateShopPassword: (id, password) => {
+    import("@/lib/supabase").then(({ supabase }) => {
+      supabase
+        .from("shop_owner")
+        .update({ password })
+        .eq("owner_id", id)
+        .then(({ error }) => {
+          if (error) console.error("Error updating shop password in Supabase:", error);
+        });
+    });
+    set((s) => ({
+      shops: s.shops.map((sh) =>
+        sh.id === id ? { ...sh, password } : sh
+      ),
+    }));
+  },
 
   settlements: mockSettlements,
 

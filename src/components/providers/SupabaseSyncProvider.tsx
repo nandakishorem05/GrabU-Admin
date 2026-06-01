@@ -25,7 +25,8 @@ export function SupabaseSyncProvider({ children }: { children: React.ReactNode }
             totalRevenue: (s.total_orders || 0) * 350,
             rating: Number(s.rating),
             isLive: s.status === "active",
-            joinedAt: s.created_at
+            joinedAt: s.created_at,
+            password: s.password || "partner123"
           }));
           useAppStore.getState().setShops(mappedShops);
         }

@@ -14,11 +14,12 @@ const TABS: { key: ShopStatus; label: string }[] = [
   { key: "rejected", label: "Rejected" },
 ];
 
-function ShopCard({ shop, onApprove, onReject, onCommissionChange }: {
+function ShopCard({ shop, onApprove, onReject, onCommissionChange, onUpdatePassword }: {
   shop: Shop;
   onApprove: (id: string, rate: number) => void;
   onReject:  (id: string) => void;
   onCommissionChange: (id: string, rate: number) => void;
+  onUpdatePassword: (id: string, password: string) => void;
 }) {
   const [commission, setCommission] = useState(shop.commissionRate);
 
@@ -58,6 +59,42 @@ function ShopCard({ shop, onApprove, onReject, onCommissionChange }: {
             {shop.fssaiNumber && (
               <span>FSSAI: <code className="text-[#d0d4f0] bg-[#22263a] px-1 rounded">{shop.fssaiNumber}</code></span>
             )}
+          </div>
+
+          {/* Credentials section */}
+          <div className="bg-[#1b1f32] rounded-lg p-3 border border-[#2e3454] my-3">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-semibold text-blue-400 flex items-center gap-1">🔑 Portal Credentials</span>
+              <button
+                onClick={() => {
+                  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%";
+                  let pass = "";
+                  for (let i = 0; i < 10; i++) {
+                    pass += chars.charAt(Math.floor(Math.random() * chars.length));
+                  }
+                  onUpdatePassword(shop.id, pass);
+                  toast("New password generated!");
+                }}
+                className="text-[11px] text-blue-400 hover:text-blue-300 font-bold bg-blue-500/10 px-2 py-0.5 rounded transition-all"
+              >
+                ⚡ Generate Random Password
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-4 text-xs">
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] text-[#6b7290]">Login Username / Email</span>
+                <span className="text-white font-medium select-all select-text">{shop.email}</span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] text-[#6b7290]">Login Password</span>
+                <input
+                  type="text"
+                  value={shop.password || "partner123"}
+                  onChange={(e) => onUpdatePassword(shop.id, e.target.value)}
+                  className="bg-[#22263a] border border-[#2e3454] text-white rounded px-2 py-0.5 text-xs w-full focus:outline-none focus:border-blue-500 font-mono"
+                />
+              </div>
+            </div>
           </div>
 
           {/* Approved shop metrics */}
@@ -126,7 +163,7 @@ function ShopCard({ shop, onApprove, onReject, onCommissionChange }: {
 }
 
 export default function ShopsPage() {
-  const { shops, approveShop, rejectShop, updateCommission } = useAppStore();
+  const { shops, approveShop, rejectShop, updateCommission, updateShopPassword } = useAppStore();
   const [activeTab, setActiveTab] = useState<ShopStatus>("pending");
 
   const filtered = shops.filter((s) => s.status === activeTab);
@@ -184,6 +221,7 @@ export default function ShopsPage() {
                 onApprove={approveShop}
                 onReject={rejectShop}
                 onCommissionChange={updateCommission}
+                onUpdatePassword={updateShopPassword}
               />
             ))
           )}

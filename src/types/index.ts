@@ -75,6 +75,7 @@ export interface Shop {
   rating: number;
   isLive: boolean;
   joinedAt: string;
+  password?: string;
 }
 
 // ─── Settlement Types ───────────────────────────────────────────
