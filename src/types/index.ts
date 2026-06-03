@@ -180,6 +180,8 @@ export interface AdPoster {
   title: string;
   imageUrl: string;
   isActive: boolean;
+  targetLocation: string;
+  expiresAt: string | null;
   createdAt: string;
 }
 

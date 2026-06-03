@@ -215,6 +215,8 @@ export function SupabaseSyncProvider({ children }: { children: React.ReactNode }
             title: a.title,
             imageUrl: a.image_url,
             isActive: a.is_active,
+            targetLocation: a.target_location || "All",
+            expiresAt: a.expires_at || null,
             createdAt: a.created_at
           }));
           useAppStore.getState().setAdPosters(mappedAds);

@@ -267,6 +267,8 @@ export const useAppStore = create<AppState>((set) => ({
       title: "Fresh Vegetables 20% Off!",
       imageUrl: "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=600&q=80",
       isActive: true,
+      targetLocation: "All",
+      expiresAt: null,
       createdAt: new Date().toISOString(),
     }
   ],
@@ -280,6 +282,8 @@ export const useAppStore = create<AppState>((set) => ({
           title: ad.title,
           image_url: ad.imageUrl,
           is_active: ad.isActive,
+          target_location: ad.targetLocation,
+          expires_at: ad.expiresAt,
         })
         .then(({ error }) => {
           if (error) console.error("Error inserting ad poster to Supabase:", error);
@@ -295,13 +299,16 @@ export const useAppStore = create<AppState>((set) => ({
           import("@/lib/supabase").then(({ supabase }) => {
             supabase
               .from("ad_poster")
-              .update({ is_active: nextActive })
+              .update({ 
+                is_active: nextActive,
+                expires_at: nextActive ? p.expiresAt : null
+              })
               .eq("ad_id", id)
               .then(({ error }) => {
                 if (error) console.error("Error updating ad status in Supabase:", error);
               });
           });
-          return { ...p, isActive: nextActive };
+          return { ...p, isActive: nextActive, expiresAt: nextActive ? p.expiresAt : null };
         }
         return p;
       });

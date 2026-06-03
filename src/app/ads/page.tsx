@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Search, Plus, Image, Trash2, RefreshCcw, X, Upload } from "lucide-react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { useAppStore } from "@/store/app-store";
@@ -9,6 +9,43 @@ import type { AdPoster } from "@/types";
 import { supabase } from "@/lib/supabase";
 
 const PAGE_SIZE = 8;
+
+function AdCountdown({ expiresAt }: { expiresAt: string }) {
+  const [timeLeft, setTimeLeft] = useState("");
+
+  useEffect(() => {
+    const calculateTimeLeft = () => {
+      const difference = new Date(expiresAt).getTime() - Date.now();
+      if (difference <= 0) {
+        return "Expired";
+      }
+
+      const hours = Math.floor(difference / (1000 * 60 * 60));
+      const mins = Math.floor((difference / 1000 / 60) % 60);
+      const secs = Math.floor((difference / 1000) % 60);
+
+      if (hours > 24) {
+        const days = Math.floor(hours / 24);
+        return `${days}d ${hours % 24}h left`;
+      }
+      return `${hours.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")} left`;
+    };
+
+    setTimeLeft(calculateTimeLeft());
+    const timer = setInterval(() => {
+      setTimeLeft(calculateTimeLeft());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [expiresAt]);
+
+  return (
+    <span className="text-[10px] bg-amber-500/15 text-amber-400 px-1.5 py-0.5 rounded font-mono font-medium border border-amber-500/20">
+      {timeLeft}
+    </span>
+  );
+}
+
 
 export default function AdsPage() {
   const { adPosters, addAdPoster, toggleAdPosterStatus, deleteAdPoster } = useAppStore();
@@ -22,6 +59,8 @@ export default function AdsPage() {
   const [imageUrl, setImageUrl] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [targetLocation, setTargetLocation] = useState("All");
+  const [duration, setDuration] = useState("unlimited");
 
   const filtered = useMemo(() => {
     return adPosters.filter((ad) => {
@@ -96,11 +135,24 @@ export default function AdsPage() {
       return toast("Please select a file to upload or paste a valid image URL", "error");
     }
 
+    let expiresAt: string | null = null;
+    if (duration !== "unlimited") {
+      const now = new Date();
+      let addedMs = 0;
+      if (duration === "1-hour") addedMs = 60 * 60 * 1000;
+      else if (duration === "12-hours") addedMs = 12 * 60 * 60 * 1000;
+      else if (duration === "24-hours") addedMs = 24 * 60 * 60 * 1000;
+      else if (duration === "7-days") addedMs = 7 * 24 * 60 * 60 * 1000;
+      expiresAt = new Date(now.getTime() + addedMs).toISOString();
+    }
+
     const newAd: AdPoster = {
       id: `AD${Math.floor(100 + Math.random() * 900)}`,
       title: newTitle.trim(),
       imageUrl: finalImageUrl,
       isActive: true,
+      targetLocation: targetLocation.trim() || "All",
+      expiresAt: expiresAt,
       createdAt: new Date().toISOString(),
     };
 
@@ -112,6 +164,8 @@ export default function AdsPage() {
     setNewTitle("");
     setImageUrl("");
     setSelectedFile(null);
+    setTargetLocation("All");
+    setDuration("unlimited");
   };
 
   return (
@@ -225,38 +279,70 @@ export default function AdsPage() {
 
             {/* Info Section */}
             <div className="p-4 space-y-2.5 flex-1 flex flex-col justify-between">
-              <div>
-                <h4 className="font-bold text-white text-sm leading-snug line-clamp-2">
-                  {ad.title}
-                </h4>
-                <p className="text-[10px] text-[#6b7290] mt-1 font-mono">ID: {ad.id}</p>
+              <div className="space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <h4 className="font-bold text-white text-sm leading-snug line-clamp-2 flex-1">
+                    {ad.title}
+                  </h4>
+                  {ad.isActive && ad.expiresAt && (
+                    <div className="flex-shrink-0">
+                      <AdCountdown expiresAt={ad.expiresAt} />
+                    </div>
+                  )}
+                </div>
+                
+                <div className="flex items-center justify-between text-[10px] text-[#6b7290] font-mono">
+                  <span>ID: {ad.id}</span>
+                  {ad.expiresAt && !ad.isActive && (
+                    <span className="text-amber-500/60">Scheduled</span>
+                  )}
+                </div>
+
+                <div className="text-[11px] text-[#9aa0c0] bg-[#11131a] p-1.5 rounded border border-[#2e3454]/50 flex flex-wrap gap-1 items-center">
+                  <span className="text-[#6b7290]">Target Areas:</span>
+                  <span className="font-semibold text-[#8f9bba] truncate max-w-[140px]" title={ad.targetLocation}>
+                    {ad.targetLocation}
+                  </span>
+                </div>
               </div>
 
-              <div className="flex items-center justify-between pt-2 border-t border-[#2e3454]/50">
-                <span className="text-[10px] text-[#6b7290]">
-                  Created:{" "}
-                  {new Date(ad.createdAt).toLocaleDateString("en-IN", {
-                    day: "numeric",
-                    month: "short",
-                  })}
-                </span>
+              <div className="pt-2 border-t border-[#2e3454]/50 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-[#6b7290]">
+                    Created:{" "}
+                    {new Date(ad.createdAt).toLocaleDateString("en-IN", {
+                      day: "numeric",
+                      month: "short",
+                    })}
+                  </span>
 
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => handleStatusToggle(ad.id, ad.title)}
-                    className="p-1.5 rounded-lg hover:bg-[#22263a] text-[#9aa0c0] hover:text-blue-400 transition-colors"
-                    title="Toggle Status (On/Off)"
-                  >
-                    <RefreshCcw size={13} />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(ad.id, ad.title)}
-                    className="p-1.5 rounded-lg hover:bg-red-500/10 text-[#9aa0c0] hover:text-red-400 transition-colors"
-                    title="Delete Ad Poster"
-                  >
-                    <Trash2 size={13} />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleStatusToggle(ad.id, ad.title)}
+                      className="p-1.5 rounded-lg hover:bg-[#22263a] text-[#9aa0c0] hover:text-blue-400 transition-colors"
+                      title="Toggle Status (On/Off)"
+                    >
+                      <RefreshCcw size={13} />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(ad.id, ad.title)}
+                      className="p-1.5 rounded-lg hover:bg-red-500/10 text-[#9aa0c0] hover:text-red-400 transition-colors"
+                      title="Delete Ad Poster"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
                 </div>
+
+                {ad.isActive && (
+                  <button
+                    type="button"
+                    onClick={() => handleStatusToggle(ad.id, ad.title)}
+                    className="w-full text-center py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-semibold transition-colors flex items-center justify-center gap-1 border border-red-500/20"
+                  >
+                    <X size={12} /> Stop Campaign
+                  </button>
+                )}
               </div>
             </div>
           </motion.div>
@@ -340,6 +426,34 @@ export default function AdsPage() {
                     required
                     disabled={uploading}
                   />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-[#9aa0c0] font-medium block mb-1">Target Locations</label>
+                    <input
+                      value={targetLocation}
+                      onChange={(e) => setTargetLocation(e.target.value)}
+                      placeholder="e.g. Koramangala, All"
+                      className="input-base w-full text-xs"
+                      disabled={uploading}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-[#9aa0c0] font-medium block mb-1">Campaign Duration</label>
+                    <select
+                      value={duration}
+                      onChange={(e) => setDuration(e.target.value)}
+                      className="input-base w-full text-xs bg-[#11131a]"
+                      disabled={uploading}
+                    >
+                      <option value="unlimited">Unlimited</option>
+                      <option value="1-hour">1 Hour</option>
+                      <option value="12-hours">12 Hours</option>
+                      <option value="24-hours">24 Hours</option>
+                      <option value="7-days">7 Days</option>
+                    </select>
+                  </div>
                 </div>
 
                 <div>
