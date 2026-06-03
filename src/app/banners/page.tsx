@@ -47,11 +47,44 @@ function BannerCountdown({ expiresAt }: { expiresAt: string }) {
 }
 
 export default function BannersPage() {
-  const { adPosters, addAdPoster, toggleAdPosterStatus, deleteAdPoster } = useAppStore();
+  const { adPosters, addAdPoster, toggleAdPosterStatus, deleteAdPoster, setAdPosters } = useAppStore();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [page, setPage] = useState(1);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // Load banners from Supabase on mount
+  useEffect(() => {
+    const loadBanners = async () => {
+      setLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from("ad_poster")
+          .select("*")
+          .order("created_at", { ascending: false });
+        if (!error && data) {
+          // Map Supabase rows → AdPoster type
+          const fetched = data.map((row: any) => ({
+            id: row.ad_id,
+            title: row.title,
+            imageUrl: row.image_url,
+            isActive: row.is_active,
+            targetLocation: row.target_location ?? "All",
+            expiresAt: row.expires_at ?? null,
+            createdAt: row.created_at,
+          }));
+          setAdPosters(fetched);
+        }
+      } catch (err) {
+        console.error("Failed to load banners from Supabase:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadBanners();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // New Banner Form State
   const [newTitle, setNewTitle] = useState("");
@@ -175,7 +208,8 @@ export default function BannersPage() {
       <div>
         <h1 className="text-2xl font-bold text-white">Promotional Banners</h1>
         <p className="text-xs text-[#6b7290] mt-1">
-          Manage sliding carousel banners and promotional posters displayed to customers on the home page.
+          Manage sliding carousel banners displayed to customers. Banners are synced live from Supabase.
+          {loading && <span className="ml-2 inline-flex items-center gap-1 text-blue-400"><span className="w-2.5 h-2.5 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin inline-block" />Loading…</span>}
         </p>
       </div>
 

@@ -50,11 +50,43 @@ function AdCountdown({ expiresAt }: { expiresAt: string }) {
 }
 
 export default function AdsPage() {
-  const { adPosters, addAdPoster, toggleAdPosterStatus, deleteAdPoster } = useAppStore();
+  const { adPosters, addAdPoster, toggleAdPosterStatus, deleteAdPoster, setAdPosters } = useAppStore();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [page, setPage] = useState(1);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // Load ad posters from Supabase on mount
+  useEffect(() => {
+    const loadAds = async () => {
+      setLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from("ad_poster")
+          .select("*")
+          .order("created_at", { ascending: false });
+        if (!error && data) {
+          const fetched = data.map((row: any) => ({
+            id: row.ad_id,
+            title: row.title,
+            imageUrl: row.image_url,
+            isActive: row.is_active,
+            targetLocation: row.target_location ?? "All",
+            expiresAt: row.expires_at ?? null,
+            createdAt: row.created_at,
+          }));
+          setAdPosters(fetched);
+        }
+      } catch (err) {
+        console.error("Failed to load ad posters from Supabase:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadAds();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // New Ad Form State
   const [newTitle, setNewTitle] = useState("");
