@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, ShoppingCart, Package, Store, Wallet,
   BarChart3, Settings, ChevronLeft, ChevronRight, Bell,
-  Users, Ticket, Image,
+  Users, Ticket, Image, Megaphone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app-store";
@@ -19,7 +19,8 @@ const navItems = [
   { href: "/products",    label: "Master Catalogue",  icon: Package },
   { section: "Marketing" },
   { href: "/promos",      label: "Promo Codes",       icon: Ticket },
-  { href: "/ads",         label: "Promotional Banners",        icon: Image },
+  { href: "/ads",         label: "Ad Posters",        icon: Megaphone },
+  { href: "/banners",     label: "Promotional Banners",icon: Image },
   { section: "Partners" },
   { href: "/shops",       icon: Store, label: "Shop Onboarding", badge: 5 },
   { section: "Finance" },
