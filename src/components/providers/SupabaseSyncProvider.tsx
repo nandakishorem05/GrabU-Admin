@@ -94,7 +94,7 @@ export function SupabaseSyncProvider({ children }: { children: React.ReactNode }
             sku: mp.product_id,
             stockQuantity: 100, // Master catalogue default
             status: mp.is_active ? ("active" as const) : ("inactive" as const),
-            images: [mp.emoji || "📦"],
+            images: [mp.image_url || mp.emoji || "📦"],
             createdAt: mp.created_at
           }));
           useAppStore.getState().setProducts(mappedProducts);

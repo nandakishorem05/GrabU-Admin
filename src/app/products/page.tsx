@@ -140,7 +140,13 @@ export default function ProductsPage() {
                 >
                   <td>
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-[#22263a] flex items-center justify-center text-sm">📦</div>
+                      <div className="w-8 h-8 rounded-lg bg-[#22263a] flex items-center justify-center text-sm overflow-hidden flex-shrink-0">
+                        {product.images?.[0] && product.images[0].startsWith("http") ? (
+                          <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover" />
+                        ) : (
+                          product.images?.[0] || "📦"
+                        )}
+                      </div>
                       <span className="font-semibold text-white whitespace-nowrap">{product.name}</span>
                     </div>
                   </td>

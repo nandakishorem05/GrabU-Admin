@@ -21,6 +21,7 @@ const schema = z.object({
   stockQuantity: z.coerce.number().min(0).default(0),
   status:        z.enum(["active", "inactive"]),
   emoji:         z.string().optional(),
+  imageUrl:      z.string().optional(),
 }).refine((d) => d.offerPrice <= d.basePrice, {
   message: "Offer price must be ≤ base price",
   path: ["offerPrice"],
@@ -90,7 +91,7 @@ export function AddProductModal({ open, onClose }: AddProductModalProps) {
       sku: data.sku || `SKU-${Date.now().toString().slice(-6)}`,
       stockQuantity: data.stockQuantity,
       status: data.status,
-      images: [selectedEmoji],
+      images: [data.imageUrl || selectedEmoji],
       createdAt: new Date().toISOString(),
     };
     addProduct(product);
@@ -168,6 +169,19 @@ export function AddProductModal({ open, onClose }: AddProductModalProps) {
                     {selectedEmoji}
                   </div>
                 </div>
+              </div>
+
+              {/* Image URL */}
+              <div>
+                <label className="form-label">Product Image URL (Optional)</label>
+                <input
+                  {...register("imageUrl")}
+                  placeholder="https://example.com/product-image.webp"
+                  className="input-base w-full mt-1.5"
+                />
+                <p className="text-[10px] text-[#6b7290] mt-1">
+                  Provides a high-quality product photo (replaces icon on clients).
+                </p>
               </div>
 
               {/* Name & Brand */}

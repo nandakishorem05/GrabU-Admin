@@ -83,7 +83,7 @@ export const useAppStore = create<AppState>((set) => ({
   products: mockProducts,
   setProducts: (products) => set({ products }),
   addProduct: (product) => {
-    // Persist to Supabase master_product table
+    const isUrl = product.images?.[0]?.startsWith("http");
     import("@/lib/supabase").then(({ supabase }) => {
       supabase
         .from("master_product")
@@ -96,7 +96,8 @@ export const useAppStore = create<AppState>((set) => ({
           base_price: product.basePrice,
           barcode: product.barcode,
           is_active: product.status === "active",
-          emoji: product.images?.[0] || "📦",
+          image_url: isUrl ? product.images[0] : null,
+          emoji: isUrl ? "📦" : (product.images?.[0] || "📦"),
           description: `Brand: ${product.brand}`,
         })
         .then(({ error }) => {
