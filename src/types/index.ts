@@ -37,7 +37,7 @@ export interface Order {
 }
 
 // ─── Product Types ──────────────────────────────────────────────
-export type ProductUnit = "kg" | "g" | "litre" | "ml" | "pack" | "piece";
+export type ProductUnit = "kg" | "g" | "litre" | "ml" | "pack" | "piece" | "500g" | "250g" | "1L" | "75cl";
 export type ProductStatus = "active" | "inactive";
 
 export interface Product {

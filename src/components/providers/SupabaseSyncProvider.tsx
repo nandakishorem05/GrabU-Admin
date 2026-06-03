@@ -50,9 +50,8 @@ export function SupabaseSyncProvider({ children }: { children: React.ReactNode }
     // Request browser notification permission on mount
     requestNotificationPermission();
 
-    const syncData = async () => {
+    const syncShops = async () => {
       try {
-        // 1. Fetch & Sync Shops
         const { data: dbShops } = await supabase.from("shop_owner").select("*");
         if (dbShops) {
           const mappedShops = dbShops.map((s: any) => ({
@@ -74,8 +73,13 @@ export function SupabaseSyncProvider({ children }: { children: React.ReactNode }
           }));
           useAppStore.getState().setShops(mappedShops);
         }
+      } catch (err) {
+        console.error("Shop sync error:", err);
+      }
+    };
 
-        // 2. Fetch & Sync Products (Master Catalogue)
+    const syncProducts = async () => {
+      try {
         const { data: dbMP } = await supabase.from("master_product").select("*");
         if (dbMP) {
           const mappedProducts = dbMP.map((mp: any) => ({
@@ -95,8 +99,13 @@ export function SupabaseSyncProvider({ children }: { children: React.ReactNode }
           }));
           useAppStore.getState().setProducts(mappedProducts);
         }
+      } catch (err) {
+        console.error("Product sync error:", err);
+      }
+    };
 
-        // 3. Fetch & Sync Customers
+    const syncCustomers = async () => {
+      try {
         const { data: dbCust } = await supabase.from("customer").select("*, customer_address(*), order(*)");
         if (dbCust) {
           const mappedCustomers = dbCust.map((c: any) => {
@@ -119,11 +128,8 @@ export function SupabaseSyncProvider({ children }: { children: React.ReactNode }
           });
           useAppStore.getState().setCustomers(mappedCustomers);
         }
-
-        // 4. Fetch & Sync Orders
-        await syncOrders();
       } catch (err) {
-        console.error("Initial data load error:", err);
+        console.error("Customer sync error:", err);
       }
     };
 
@@ -200,11 +206,18 @@ export function SupabaseSyncProvider({ children }: { children: React.ReactNode }
       }
     };
 
+    const syncData = async () => {
+      await syncShops();
+      await syncProducts();
+      await syncCustomers();
+      await syncOrders();
+    };
+
     // Trigger initial loading
     syncData();
 
-    // Setup Real-time Postgres changes channels for orders
-    const channel = supabase
+    // Setup Real-time Postgres changes channels
+    const ordersChannel = supabase
       .channel("realtime-orders")
       .on(
         "postgres_changes",
@@ -215,8 +228,32 @@ export function SupabaseSyncProvider({ children }: { children: React.ReactNode }
       )
       .subscribe();
 
+    const shopsChannel = supabase
+      .channel("realtime-shops")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "shop_owner" },
+        () => {
+          syncShops();
+        }
+      )
+      .subscribe();
+
+    const productsChannel = supabase
+      .channel("realtime-products")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "master_product" },
+        () => {
+          syncProducts();
+        }
+      )
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(ordersChannel);
+      supabase.removeChannel(shopsChannel);
+      supabase.removeChannel(productsChannel);
     };
   }, []);
 
