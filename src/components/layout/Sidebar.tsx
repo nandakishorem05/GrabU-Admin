@@ -19,7 +19,7 @@ const navItems = [
   { href: "/products",    label: "Master Catalogue",  icon: Package },
   { section: "Marketing" },
   { href: "/promos",      label: "Promo Codes",       icon: Ticket },
-  { href: "/ads",         label: "Ad Posters",        icon: Image },
+  { href: "/ads",         label: "Promotional Banners",        icon: Image },
   { section: "Partners" },
   { href: "/shops",       icon: Store, label: "Shop Onboarding", badge: 5 },
   { section: "Finance" },

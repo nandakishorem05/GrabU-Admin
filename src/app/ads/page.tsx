@@ -78,13 +78,13 @@ export default function AdsPage() {
 
   const handleStatusToggle = (id: string, title: string) => {
     toggleAdPosterStatus(id);
-    toast(`Ad poster "${title}" status toggled`, "success");
+    toast(`Banner "${title}" status toggled`, "success");
   };
 
   const handleDelete = (id: string, title: string) => {
-    if (confirm(`Are you sure you want to delete ad poster "${title}"?`)) {
+    if (confirm(`Are you sure you want to delete banner "${title}"?`)) {
       deleteAdPoster(id);
-      toast(`Ad poster "${title}" deleted`, "error");
+      toast(`Banner "${title}" deleted`, "error");
     }
   };
 
@@ -97,7 +97,7 @@ export default function AdsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTitle.trim()) return toast("Please enter a title for the ad poster", "error");
+    if (!newTitle.trim()) return toast("Please enter a title for the banner", "error");
 
     let finalImageUrl = imageUrl.trim();
 
@@ -157,7 +157,7 @@ export default function AdsPage() {
     };
 
     addAdPoster(newAd);
-    toast(`Ad Poster "${newAd.title}" created successfully!`, "success");
+    toast(`Banner "${newAd.title}" created successfully!`, "success");
     setShowAddModal(false);
 
     // Reset Form
@@ -170,6 +170,14 @@ export default function AdsPage() {
 
   return (
     <div className="space-y-4">
+      {/* Page Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-white">Promotional Banners</h1>
+        <p className="text-xs text-[#6b7290] mt-1">
+          Manage sliding carousel banners and promotional posters displayed to customers on the home page.
+        </p>
+      </div>
+
       {/* Toolbar */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px]">
@@ -180,7 +188,7 @@ export default function AdsPage() {
               setSearch(e.target.value);
               setPage(1);
             }}
-            placeholder="Search ad posters..."
+            placeholder="Search banners..."
             className="input-base w-full pl-9"
           />
         </div>
@@ -200,7 +208,7 @@ export default function AdsPage() {
           onClick={() => setShowAddModal(true)}
           className="btn-primary flex items-center gap-2 text-sm ml-auto"
         >
-          <Plus size={14} /> Add Ad Poster
+          <Plus size={14} /> Add New Banner
         </button>
       </div>
 
@@ -208,19 +216,19 @@ export default function AdsPage() {
       <div className="grid grid-cols-3 gap-3 max-sm:grid-cols-2">
         {[
           {
-            label: "Total Ad Posters",
+            label: "Total Banners",
             value: adPosters.length,
             color: "text-white",
             icon: Image,
           },
           {
-            label: "Active Campaigns",
+            label: "Active Banners",
             value: adPosters.filter((ad) => ad.isActive).length,
             color: "text-green-400",
             icon: Upload,
           },
           {
-            label: "Inactive Campaigns",
+            label: "Inactive Banners",
             value: adPosters.filter((ad) => !ad.isActive).length,
             color: "text-[#6b7290]",
             icon: X,
@@ -327,7 +335,7 @@ export default function AdsPage() {
                     <button
                       onClick={() => handleDelete(ad.id, ad.title)}
                       className="p-1.5 rounded-lg hover:bg-red-500/10 text-[#9aa0c0] hover:text-red-400 transition-colors"
-                      title="Delete Ad Poster"
+                      title="Delete Banner"
                     >
                       <Trash2 size={13} />
                     </button>
@@ -340,7 +348,7 @@ export default function AdsPage() {
                     onClick={() => handleStatusToggle(ad.id, ad.title)}
                     className="w-full text-center py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-semibold transition-colors flex items-center justify-center gap-1 border border-red-500/20"
                   >
-                    <X size={12} /> Stop Campaign
+                    <X size={12} /> Stop Banner
                   </button>
                 )}
               </div>
@@ -350,7 +358,7 @@ export default function AdsPage() {
 
         {paginated.length === 0 && (
           <div className="col-span-4 text-center py-16 card text-[#6b7290]">
-            No ad posters found matching your criteria. Click "Add Ad Poster" to create one.
+            No banners found matching your criteria. Click "Add New Banner" to create one.
           </div>
         )}
       </div>
@@ -405,7 +413,7 @@ export default function AdsPage() {
               <div className="flex items-center justify-between px-4 py-3 border-b border-[#2e3454]">
                 <div className="flex items-center gap-2">
                   <Image size={16} className="text-blue-400" />
-                  <h3 className="font-bold text-white text-sm">Add New Ad Poster</h3>
+                  <h3 className="font-bold text-white text-sm">Add New Banner</h3>
                 </div>
                 <button
                   onClick={() => setShowAddModal(false)}
@@ -417,7 +425,7 @@ export default function AdsPage() {
 
               <form onSubmit={handleSubmit} className="p-4 space-y-4">
                 <div>
-                  <label className="text-xs text-[#9aa0c0] font-medium block mb-1">Ad Title</label>
+                  <label className="text-xs text-[#9aa0c0] font-medium block mb-1">Banner Title</label>
                   <input
                     value={newTitle}
                     onChange={(e) => setNewTitle(e.target.value)}
@@ -440,7 +448,7 @@ export default function AdsPage() {
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-[#9aa0c0] font-medium block mb-1">Campaign Duration</label>
+                    <label className="text-xs text-[#9aa0c0] font-medium block mb-1">Banner Duration</label>
                     <select
                       value={duration}
                       onChange={(e) => setDuration(e.target.value)}
@@ -470,7 +478,7 @@ export default function AdsPage() {
                     />
                     <Upload size={22} className="text-[#6b7290] group-hover:text-blue-400 transition-colors mb-2" />
                     <span className="text-xs font-semibold text-white block">
-                      {selectedFile ? selectedFile.name : "Select Image Poster File"}
+                      {selectedFile ? selectedFile.name : "Select Banner Image File"}
                     </span>
                     <span className="text-[10px] text-[#6b7290] mt-1 block">
                       PNG, JPG or WEBP (Max 2MB)
@@ -521,7 +529,7 @@ export default function AdsPage() {
                         Uploading...
                       </>
                     ) : (
-                      "Create Campaign"
+                      "Create Banner"
                     )}
                   </button>
                 </div>
