@@ -206,11 +206,30 @@ export function SupabaseSyncProvider({ children }: { children: React.ReactNode }
       }
     };
 
+    const syncAdPosters = async () => {
+      try {
+        const { data: dbAds } = await supabase.from("ad_poster").select("*");
+        if (dbAds) {
+          const mappedAds = dbAds.map((a: any) => ({
+            id: a.ad_id,
+            title: a.title,
+            imageUrl: a.image_url,
+            isActive: a.is_active,
+            createdAt: a.created_at
+          }));
+          useAppStore.getState().setAdPosters(mappedAds);
+        }
+      } catch (err) {
+        console.error("Ad posters sync error:", err);
+      }
+    };
+
     const syncData = async () => {
       await syncShops();
       await syncProducts();
       await syncCustomers();
       await syncOrders();
+      await syncAdPosters();
     };
 
     // Trigger initial loading
@@ -250,10 +269,22 @@ export function SupabaseSyncProvider({ children }: { children: React.ReactNode }
       )
       .subscribe();
 
+    const adsChannel = supabase
+      .channel("realtime-ads")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "ad_poster" },
+        () => {
+          syncAdPosters();
+        }
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(ordersChannel);
       supabase.removeChannel(shopsChannel);
       supabase.removeChannel(productsChannel);
+      supabase.removeChannel(adsChannel);
     };
   }, []);
 

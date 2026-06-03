@@ -1,6 +1,6 @@
 "use client";
 import { create } from "zustand";
-import type { Order, Product, Shop, Settlement, PlatformSettings, Customer, PromoCode } from "@/types";
+import type { Order, Product, Shop, Settlement, PlatformSettings, Customer, PromoCode, AdPoster } from "@/types";
 import { mockOrders, mockProducts, mockShops, mockSettlements, mockSettings, mockCustomers, mockPromoCodes } from "@/data/mock";
 
 interface AppState {
@@ -43,6 +43,13 @@ interface AppState {
   addPromoCode: (promo: PromoCode) => void;
   togglePromoCodeStatus: (id: string) => void;
   deletePromoCode: (id: string) => void;
+
+  // Ad Posters
+  adPosters: AdPoster[];
+  setAdPosters: (ads: AdPoster[]) => void;
+  addAdPoster: (ad: AdPoster) => void;
+  toggleAdPosterStatus: (id: string) => void;
+  deleteAdPoster: (id: string) => void;
 
   // UI
   sidebarOpen: boolean;
@@ -252,6 +259,88 @@ export const useAppStore = create<AppState>((set) => ({
     })),
   deletePromoCode: (id) =>
     set((s) => ({ promoCodes: s.promoCodes.filter((p) => p.id !== id) })),
+
+  // Ad Posters implementation
+  adPosters: [
+    {
+      id: "ad-1",
+      title: "Fresh Vegetables 20% Off!",
+      imageUrl: "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=600&q=80",
+      isActive: true,
+      createdAt: new Date().toISOString(),
+    }
+  ],
+  setAdPosters: (adPosters) => set({ adPosters }),
+  addAdPoster: (ad) => {
+    import("@/lib/supabase").then(({ supabase }) => {
+      supabase
+        .from("ad_poster")
+        .insert({
+          ad_id: ad.id,
+          title: ad.title,
+          image_url: ad.imageUrl,
+          is_active: ad.isActive,
+        })
+        .then(({ error }) => {
+          if (error) console.error("Error inserting ad poster to Supabase:", error);
+        });
+    });
+    set((s) => ({ adPosters: [ad, ...s.adPosters] }));
+  },
+  toggleAdPosterStatus: (id) => {
+    set((s) => {
+      const updated = s.adPosters.map((p) => {
+        if (p.id === id) {
+          const nextActive = !p.isActive;
+          import("@/lib/supabase").then(({ supabase }) => {
+            supabase
+              .from("ad_poster")
+              .update({ is_active: nextActive })
+              .eq("ad_id", id)
+              .then(({ error }) => {
+                if (error) console.error("Error updating ad status in Supabase:", error);
+              });
+          });
+          return { ...p, isActive: nextActive };
+        }
+        return p;
+      });
+      return { adPosters: updated };
+    });
+  },
+  deleteAdPoster: (id) => {
+    // 1. Delete from Supabase Database and Storage
+    set((s) => {
+      const target = s.adPosters.find((p) => p.id === id);
+      if (target) {
+        import("@/lib/supabase").then(({ supabase }) => {
+          // Extract filename from URL
+          const urlParts = target.imageUrl.split("/");
+          const fileName = urlParts[urlParts.length - 1];
+          
+          // Delete storage file (only if it was uploaded to our bucket)
+          if (target.imageUrl.includes("/storage/v1/object/public/posters")) {
+            supabase.storage
+              .from("posters")
+              .remove([fileName])
+              .then(({ error }) => {
+                if (error) console.error("Error deleting poster file from storage:", error);
+              });
+          }
+
+          // Delete DB row
+          supabase
+            .from("ad_poster")
+            .delete()
+            .eq("ad_id", id)
+            .then(({ error }) => {
+              if (error) console.error("Error deleting ad poster from Supabase:", error);
+            });
+        });
+      }
+      return { adPosters: s.adPosters.filter((p) => p.id !== id) };
+    });
+  },
 
   sidebarOpen: true,
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
