@@ -26,21 +26,13 @@ export default function ProductsPage() {
       const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase()) ||
         p.brand.toLowerCase().includes(search.toLowerCase()) || p.sku.toLowerCase().includes(search.toLowerCase());
       const matchCat = category === "All Categories" || p.category === category;
-      const matchStatus = statusFilter === "all" || p.status === statusFilter ||
-        (statusFilter === "low_stock" && p.stockQuantity > 0 && p.stockQuantity <= 10) ||
-        (statusFilter === "out_of_stock" && p.stockQuantity === 0);
+      const matchStatus = statusFilter === "all" || p.status === statusFilter;
       return matchSearch && matchCat && matchStatus;
     });
   }, [products, search, category, statusFilter]);
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
-  const getStockBadge = (qty: number) => {
-    if (qty === 0) return <StatusBadge status="inactive" label="Out of Stock" />;
-    if (qty <= 10) return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-400"><span className="w-1.5 h-1.5 rounded-full bg-current" />Low Stock</span>;
-    return <StatusBadge status="active" label={`${qty} units`} />;
-  };
 
   const handleDelete = (id: string, name: string) => {
     if (confirm(`Delete "${name}"?`)) {
@@ -77,8 +69,6 @@ export default function ProductsPage() {
           <option value="all">All Status</option>
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
-          <option value="low_stock">Low Stock</option>
-          <option value="out_of_stock">Out of Stock</option>
         </select>
         <div className="flex gap-2 ml-auto">
           <button
@@ -97,12 +87,10 @@ export default function ProductsPage() {
       </div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-4 gap-3 max-sm:grid-cols-2">
+      <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-2">
         {[
           { label: "Total Products", value: products.length, color: "text-white" },
           { label: "Active", value: products.filter((p) => p.status === "active").length, color: "text-green-400" },
-          { label: "Low Stock", value: products.filter((p) => p.stockQuantity > 0 && p.stockQuantity <= 10).length, color: "text-amber-400" },
-          { label: "Out of Stock", value: products.filter((p) => p.stockQuantity === 0).length, color: "text-red-400" },
         ].map((s) => (
           <div key={s.label} className="card-sm">
             <p className="text-xs text-[#6b7290] mb-1">{s.label}</p>
@@ -121,11 +109,8 @@ export default function ProductsPage() {
                 <th>Category</th>
                 <th>Brand</th>
                 <th>Unit</th>
-                <th>Base Price</th>
-                <th>Offer Price</th>
                 <th>SKU</th>
                 <th>Barcode</th>
-                <th>Stock</th>
                 <th>Status</th>
                 <th>Actions</th>
               </tr>
@@ -152,15 +137,8 @@ export default function ProductsPage() {
                   <td className="whitespace-nowrap">{product.category}</td>
                   <td>{product.brand}</td>
                   <td>{product.unit}</td>
-                  <td>
-                    <span className={product.offerPrice < product.basePrice ? "line-through text-[#6b7290]" : "text-white font-medium"}>
-                      ₹{product.basePrice}
-                    </span>
-                  </td>
-                  <td><span className="font-semibold text-white">₹{product.offerPrice}</span></td>
                   <td><code className="text-xs bg-[#22263a] px-2 py-0.5 rounded text-[#9aa0c0]">{product.sku}</code></td>
                   <td><code className="text-xs text-[#6b7290]">{product.barcode}</code></td>
-                  <td>{getStockBadge(product.stockQuantity)}</td>
                   <td><StatusBadge status={product.status} /></td>
                   <td>
                     <div className="flex items-center gap-2">
@@ -182,7 +160,7 @@ export default function ProductsPage() {
               ))}
               {paginated.length === 0 && (
                 <tr>
-                  <td colSpan={11} className="text-center py-12 text-[#6b7290]">
+                  <td colSpan={8} className="text-center py-12 text-[#6b7290]">
                     No products found matching your filters
                   </td>
                 </tr>
