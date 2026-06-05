@@ -8,6 +8,78 @@ import { toast } from "@/components/ui/Toaster";
 
 const statusFlow = ["pending", "accepted", "packing", "out_for_delivery", "delivered"] as const;
 
+interface StructuredAddress {
+  house: string;
+  area: string;
+  city: string;
+  pincode: string;
+  landmark: string;
+  label: string;
+  name: string;
+  phone: string;
+}
+
+function parseStructuredAddress(addressStr: string, fallbackLandmark: string): StructuredAddress {
+  const trimmed = addressStr.trim();
+  if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+    try {
+      const data = JSON.parse(trimmed);
+      return {
+        house: data.house || "",
+        area: data.area || "",
+        city: data.city || "",
+        pincode: data.pincode || "",
+        landmark: data.landmark || "",
+        label: data.label || "Home",
+        name: data.name || "",
+        phone: data.phone || "",
+      };
+    } catch (e) {}
+  }
+
+  // Fallback parsing for old address string format: 'House, Area, City – Pincode'
+  const parts = addressStr.split(",");
+  let house = "";
+  let area = "";
+  let city = "";
+  let pincode = "";
+
+  if (parts.length > 0) house = parts[0].trim();
+  if (parts.length > 1) {
+    const lastPart = parts[parts.length - 1].trim();
+    const pincodeMatch = lastPart.match(/\b\d{6}\b/);
+    if (pincodeMatch) {
+      pincode = pincodeMatch[0];
+      city = lastPart.replace(pincode, "").replace(/–|-/g, "").trim();
+    } else {
+      city = lastPart;
+    }
+
+    if (parts.length > 2) {
+      area = parts.slice(1, parts.length - 1).join(", ").trim();
+    }
+  }
+
+  // Strip coordinates from fallback landmark if needed
+  let cleanLandmark = fallbackLandmark;
+  if (fallbackLandmark.includes(" | Coords:")) {
+    cleanLandmark = fallbackLandmark.split(" | Coords:")[0].trim();
+  } else if (fallbackLandmark.includes("Coords:")) {
+    cleanLandmark = fallbackLandmark.split("Coords:")[0].trim();
+  }
+
+  return {
+    house: house || addressStr,
+    area: area,
+    city: city,
+    pincode: pincode,
+    landmark: cleanLandmark,
+    label: "Address",
+    name: "",
+    phone: "",
+  };
+}
+
 export function OrderDrawer() {
   const { orders, activeOrderId, setActiveOrderId, updateOrderStatus } = useAppStore();
   const order = orders.find((o) => o.id === activeOrderId);
@@ -68,20 +140,59 @@ export function OrderDrawer() {
             </div>
 
             {/* Customer */}
-            <div className="bg-[#22263a] rounded-xl p-4 mb-4">
-              <p className="text-xs text-[#6b7290] mb-3 flex items-center gap-1.5">
-                <Package size={12} /> Customer
-              </p>
-              <p className="font-semibold text-white">{order.customerName}</p>
-              <p className="text-sm text-blue-400 mt-1 flex items-center gap-1.5">
-                <Phone size={12} /> {order.customerPhone}
-              </p>
-              <p className="text-xs text-[#9aa0c0] mt-2 flex items-start gap-1.5">
-                <MapPin size={12} className="mt-0.5 flex-shrink-0" />
-                <span>{order.deliveryAddress}</span>
-              </p>
-              <p className="text-xs text-[#6b7290] mt-1 ml-[18px]">Landmark: {order.landmark}</p>
-            </div>
+            {(() => {
+              const addr = parseStructuredAddress(order.deliveryAddress, order.landmark);
+              return (
+                <div className="bg-[#22263a] rounded-xl p-4 mb-4 border border-[#2e3454] shadow-lg">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs text-[#6b7290] flex items-center gap-1.5 font-bold tracking-wider uppercase">
+                      <Package size={12} /> Delivery Address
+                    </p>
+                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30 uppercase">
+                      {addr.label}
+                    </span>
+                  </div>
+                  
+                  {/* Customer Details */}
+                  <div className="mb-3 pb-3 border-b border-[#2e3454]">
+                    <p className="font-semibold text-white text-sm">{addr.name || order.customerName}</p>
+                    <p className="text-xs text-blue-400 mt-1 flex items-center gap-1.5">
+                      <Phone size={12} /> {addr.phone || order.customerPhone}
+                    </p>
+                  </div>
+
+                  {/* Structured Address Fields */}
+                  <div className="space-y-2 text-xs">
+                    {addr.house && (
+                      <div className="flex items-start gap-2">
+                        <span className="font-bold text-white min-w-[50px]">House:</span>
+                        <span className="text-[#e2e8f0] font-medium">{addr.house}</span>
+                      </div>
+                    )}
+                    {addr.area && (
+                      <div className="flex items-start gap-2">
+                        <span className="font-bold text-gray-400 min-w-[50px]">Area:</span>
+                        <span className="text-[#9aa0c0]">{addr.area}</span>
+                      </div>
+                    )}
+                    {(addr.city || addr.pincode) && (
+                      <div className="flex items-start gap-2">
+                        <span className="font-bold text-gray-400 min-w-[50px]">City:</span>
+                        <span className="text-[#9aa0c0]">
+                          {addr.city} {addr.pincode ? `- ${addr.pincode}` : ""}
+                        </span>
+                      </div>
+                    )}
+                    {addr.landmark && (
+                      <div className="flex items-start gap-2 mt-1 bg-[#1a1d27]/50 p-2 rounded border border-[#2e3454]">
+                        <span className="text-yellow-500 font-bold">📍 Landmark:</span>
+                        <span className="text-[#9aa0c0]">{addr.landmark}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Shop */}
             <div className="bg-[#22263a] rounded-xl p-4 mb-4">

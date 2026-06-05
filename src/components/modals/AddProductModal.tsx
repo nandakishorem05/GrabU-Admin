@@ -35,9 +35,7 @@ interface AddProductModalProps {
 }
 
 const CATEGORIES = [
-  "Dairy & Eggs", "Cooking Oil", "Beverages", "Snacks",
-  "Staples & Grains", "Staples", "Personal Care", "Home Care",
-  "Instant Food", "Fruits & Vegetables", "Frozen Foods",
+  "Vegetables & Fruits", "Staples", "Dairy", "Bakery", "Snacks", "Beverages", "Cleaning", "Personal Care", "Instant Food",
 ];
 
 const UNITS = [

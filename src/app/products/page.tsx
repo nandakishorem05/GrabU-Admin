@@ -8,8 +8,7 @@ import { toast } from "@/components/ui/Toaster";
 import { motion } from "framer-motion";
 
 const CATEGORIES = [
-  "All Categories", "Dairy & Eggs", "Cooking Oil", "Beverages",
-  "Snacks", "Staples & Grains", "Personal Care", "Home Care", "Instant Food",
+  "All Categories", "Vegetables & Fruits", "Staples", "Dairy", "Bakery", "Snacks", "Beverages", "Cleaning", "Personal Care", "Instant Food",
 ];
 
 const PAGE_SIZE = 10;
