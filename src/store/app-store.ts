@@ -21,6 +21,7 @@ interface AppState {
   setShops: (shops: Shop[]) => void;
   approveShop: (id: string, commissionRate: number) => void;
   rejectShop: (id: string) => void;
+  deleteShop: (id: string) => void;
   updateCommission: (id: string, rate: number) => void;
   updateShopPassword: (id: string, password: string) => void;
   addShop: (shop: Shop) => void;
@@ -171,6 +172,20 @@ export const useAppStore = create<AppState>((set) => ({
       ),
     }));
   },
+  deleteShop: (id) => {
+    import("@/lib/supabase").then(({ supabase }) => {
+      supabase
+        .from("shop_owner")
+        .delete()
+        .eq("owner_id", id)
+        .then(({ error }) => {
+          if (error) console.error("Error deleting shop from Supabase:", error);
+        });
+    });
+    set((s) => ({
+      shops: s.shops.filter((sh) => sh.id !== id),
+    }));
+  },
   updateCommission: (id, rate) => {
     import("@/lib/supabase").then(({ supabase }) => {
       supabase
@@ -213,7 +228,7 @@ export const useAppStore = create<AppState>((set) => ({
           shop_name: shop.shopName,
           owner_name: shop.ownerName,
           phone: shop.phone,
-          email: shop.email,
+          email: shop.email.toLowerCase().trim(),
           address: shop.address,
           latitude: 12.9716,
           longitude: 77.5946,

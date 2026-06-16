@@ -1,6 +1,6 @@
 "use client";
-import { useState } from "react";
-import { CheckCircle, XCircle, FileText, Star, TrendingUp, Plus } from "lucide-react";
+import { useState, useEffect } from "react";
+import { CheckCircle, XCircle, FileText, Star, TrendingUp, Plus, PauseCircle, Trash2 } from "lucide-react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { useAppStore } from "@/store/app-store";
 import { toast } from "@/components/ui/Toaster";
@@ -8,6 +8,7 @@ import { formatCurrency } from "@/lib/utils";
 import type { Shop, ShopStatus } from "@/types";
 import { motion, AnimatePresence } from "framer-motion";
 import { AddShopModal } from "@/components/modals/AddShopModal";
+import { ConfirmModal } from "@/components/modals/ConfirmModal";
 
 const TABS: { key: ShopStatus; label: string }[] = [
   { key: "pending",  label: "Pending" },
@@ -15,14 +16,24 @@ const TABS: { key: ShopStatus; label: string }[] = [
   { key: "rejected", label: "Rejected" },
 ];
 
-function ShopCard({ shop, onApprove, onReject, onCommissionChange, onUpdatePassword }: {
+function ShopCard({ shop, onApprove, onReject, onCommissionChange, onUpdatePassword, onSuspendClick, onDeleteClick }: {
   shop: Shop;
   onApprove: (id: string, rate: number) => void;
   onReject:  (id: string) => void;
   onCommissionChange: (id: string, rate: number) => void;
   onUpdatePassword: (id: string, password: string) => void;
+  onSuspendClick: (shop: Shop) => void;
+  onDeleteClick: (shop: Shop) => void;
 }) {
   const [commission, setCommission] = useState(shop.commissionRate);
+  const [localPassword, setLocalPassword] = useState(shop.password || "partner123");
+  const [isFocused, setIsFocused] = useState(false);
+
+  useEffect(() => {
+    if (!isFocused) {
+      setLocalPassword(shop.password || "partner123");
+    }
+  }, [shop.password, isFocused]);
 
   return (
     <motion.div
@@ -88,12 +99,38 @@ function ShopCard({ shop, onApprove, onReject, onCommissionChange, onUpdatePassw
               </div>
               <div className="flex flex-col gap-1">
                 <span className="text-[10px] text-[#6b7290]">Login Password</span>
-                <input
-                  type="text"
-                  value={shop.password || "partner123"}
-                  onChange={(e) => onUpdatePassword(shop.id, e.target.value)}
-                  className="bg-[#22263a] border border-[#2e3454] text-white rounded px-2 py-0.5 text-xs w-full focus:outline-none focus:border-blue-500 font-mono"
-                />
+                <div className="relative flex items-center">
+                  <input
+                    type="text"
+                    value={localPassword}
+                    onFocus={() => setIsFocused(true)}
+                    onBlur={() => {
+                      setIsFocused(false);
+                      if (localPassword !== (shop.password || "partner123")) {
+                        onUpdatePassword(shop.id, localPassword);
+                        toast("Password updated!");
+                      }
+                    }}
+                    onChange={(e) => setLocalPassword(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        (e.target as HTMLInputElement).blur();
+                      }
+                    }}
+                    className="bg-[#22263a] border border-[#2e3454] text-white rounded px-2 py-0.5 text-xs w-full focus:outline-none focus:border-blue-500 font-mono pr-12"
+                  />
+                  {localPassword !== (shop.password || "partner123") && (
+                    <button
+                      onClick={() => {
+                        onUpdatePassword(shop.id, localPassword);
+                        toast("Password updated!");
+                      }}
+                      className="absolute right-1 text-[10px] text-green-400 hover:text-green-300 font-bold bg-green-500/10 px-1.5 py-0.5 rounded transition-all"
+                    >
+                      Save
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -156,6 +193,40 @@ function ShopCard({ shop, onApprove, onReject, onCommissionChange, onUpdatePassw
                 </button>
               </>
             )}
+
+            {shop.status === "approved" && (
+              <>
+                <button
+                  onClick={() => onSuspendClick(shop)}
+                  className="flex items-center gap-1.5 text-xs py-1.5 px-3 rounded-lg border border-amber-500/35 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 font-bold transition-all"
+                >
+                  <PauseCircle size={13} /> Suspend
+                </button>
+                <button
+                  onClick={() => onDeleteClick(shop)}
+                  className="flex items-center gap-1.5 text-xs py-1.5 px-3 rounded-lg border border-red-500/35 bg-red-500/10 hover:bg-red-500/20 text-red-400 font-bold transition-all"
+                >
+                  <Trash2 size={13} /> Delete
+                </button>
+              </>
+            )}
+
+            {shop.status === "rejected" && (
+              <>
+                <button
+                  onClick={() => { onApprove(shop.id, commission); toast(`${shop.shopName} reactivated!`); }}
+                  className="btn-success flex items-center gap-1.5 text-xs py-1.5 px-3"
+                >
+                  <CheckCircle size={13} /> Reactivate
+                </button>
+                <button
+                  onClick={() => onDeleteClick(shop)}
+                  className="flex items-center gap-1.5 text-xs py-1.5 px-3 rounded-lg border border-red-500/35 bg-red-500/10 hover:bg-red-500/20 text-red-400 font-bold transition-all"
+                >
+                  <Trash2 size={13} /> Delete
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -164,9 +235,49 @@ function ShopCard({ shop, onApprove, onReject, onCommissionChange, onUpdatePassw
 }
 
 export default function ShopsPage() {
-  const { shops, approveShop, rejectShop, updateCommission, updateShopPassword } = useAppStore();
+  const { shops, approveShop, rejectShop, deleteShop, updateCommission, updateShopPassword } = useAppStore();
   const [activeTab, setActiveTab] = useState<ShopStatus>("pending");
   const [modalOpen, setModalOpen] = useState(false);
+
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmConfig, setConfirmConfig] = useState<{
+    title: string;
+    message: string;
+    confirmText: string;
+    variant: "danger" | "warning";
+    onConfirm: () => void;
+  } | null>(null);
+
+  const handleOpenConfirm = (config: typeof confirmConfig) => {
+    setConfirmConfig(config);
+    setConfirmOpen(true);
+  };
+
+  const handleSuspend = (shop: Shop) => {
+    handleOpenConfirm({
+      title: "Suspend Supermarket",
+      message: `Are you sure you want to suspend "${shop.shopName}"? They will no longer be able to accept orders, and their store status will be set to inactive.`,
+      confirmText: "Suspend Store",
+      variant: "warning",
+      onConfirm: () => {
+        rejectShop(shop.id);
+        toast(`🏪 "${shop.shopName}" suspended successfully.`);
+      },
+    });
+  };
+
+  const handleDelete = (shop: Shop) => {
+    handleOpenConfirm({
+      title: "Permanently Delete Supermarket",
+      message: `Are you sure you want to permanently delete "${shop.shopName}"? This action CANNOT be undone and will delete all associated products, orders, and shop history.`,
+      confirmText: "Delete Store",
+      variant: "danger",
+      onConfirm: () => {
+        deleteShop(shop.id);
+        toast(`🗑️ "${shop.shopName}" has been deleted.`);
+      },
+    });
+  };
 
   const filtered = shops.filter((s) => s.status === activeTab);
   const counts = {
@@ -235,6 +346,8 @@ export default function ShopsPage() {
                 onReject={rejectShop}
                 onCommissionChange={updateCommission}
                 onUpdatePassword={updateShopPassword}
+                onSuspendClick={handleSuspend}
+                onDeleteClick={handleDelete}
               />
             ))
           )}
@@ -243,6 +356,19 @@ export default function ShopsPage() {
 
       {/* Onboarding Modal */}
       <AddShopModal open={modalOpen} onClose={() => setModalOpen(false)} />
+
+      {/* Confirm Action Modal */}
+      {confirmConfig && (
+        <ConfirmModal
+          open={confirmOpen}
+          title={confirmConfig.title}
+          message={confirmConfig.message}
+          confirmText={confirmConfig.confirmText}
+          variant={confirmConfig.variant}
+          onConfirm={confirmConfig.onConfirm}
+          onClose={() => setConfirmOpen(false)}
+        />
+      )}
     </div>
   );
 }

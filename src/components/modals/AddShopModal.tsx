@@ -58,7 +58,7 @@ export function AddShopModal({ open, onClose }: AddShopModalProps) {
       shopName: data.shopName,
       ownerName: data.ownerName,
       phone: data.phone,
-      email: data.email,
+      email: data.email.toLowerCase().trim(),
       address: data.address,
       gstNumber: "29GST" + Math.random().toString(36).substring(2, 7).toUpperCase(),
       commissionRate: data.commissionRate,
