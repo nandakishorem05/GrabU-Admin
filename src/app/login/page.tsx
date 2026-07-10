@@ -37,8 +37,12 @@ export default function LoginPage() {
       <div className="relative w-full max-w-[430px] rounded-2xl border border-white/5 bg-white/[0.02] p-8 shadow-2xl backdrop-blur-xl">
         {/* Header Logo & Branding */}
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-600 shadow-lg shadow-blue-600/30">
-            <Lock className="h-7 w-7 text-white" />
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl overflow-hidden shadow-lg shadow-blue-500/20 border border-white/10">
+            <img
+              src="/logo.jpeg"
+              alt="GrabU Logo"
+              className="h-full w-full object-cover"
+            />
           </div>
           <h2 className="text-2xl font-extrabold tracking-tight text-white">GrabU Admin</h2>
           <p className="mt-1.5 text-xs text-[#6b7290]">

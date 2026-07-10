@@ -43,9 +43,11 @@ export function Sidebar() {
     >
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 py-5 border-b border-[#2e3454]">
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center font-bold text-sm text-white flex-shrink-0">
-          GU
-        </div>
+        <img
+          src="/logo.jpeg"
+          alt="GrabU Logo"
+          className="w-8 h-8 rounded-lg object-cover flex-shrink-0 border border-[#2e3454]"
+        />
         <AnimatePresence>
           {sidebarOpen && (
             <motion.div
