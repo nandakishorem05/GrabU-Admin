@@ -120,17 +120,35 @@ export function resolveSpreadsheetFetchUrl(rawUrl: string): {
 // ─── Parsing ──────────────────────────────────────────────────────────────────
 
 /**
- * Parses an ArrayBuffer or Uint8Array (.xlsx, .xls, .csv) into raw row objects
+ * Parses an ArrayBuffer or Uint8Array (.xlsx, .xls, .csv) into raw row objects.
+ * Iterates through ALL sheets in multi-sheet workbooks (e.g. categorized tabs).
  */
 export function parseSpreadsheetBuffer(buffer: ArrayBuffer | Uint8Array): Record<string, any>[] {
   const wb = XLSX.read(buffer, { type: "array" });
   if (!wb.SheetNames || wb.SheetNames.length === 0) return [];
 
-  // Pick first sheet or one containing 'product' / 'catalogue' / 'item'
-  const sheetName =
-    wb.SheetNames.find((n) => /product|catalogue|item|list|data/i.test(n)) || wb.SheetNames[0];
-  const sheet = wb.Sheets[sheetName];
-  return XLSX.utils.sheet_to_json(sheet, { raw: false, defval: "" });
+  const allRows: Record<string, any>[] = [];
+
+  for (const sheetName of wb.SheetNames) {
+    const sheet = wb.Sheets[sheetName];
+    if (!sheet) continue;
+
+    const rows: Record<string, any>[] = XLSX.utils.sheet_to_json(sheet, {
+      raw: false,
+      defval: "",
+    });
+    if (rows.length === 0) continue;
+
+    // Attach sheetName as default category if not present in the row
+    for (const row of rows) {
+      if (!row.__sheetName) {
+        row.__sheetName = sheetName;
+      }
+      allRows.push(row);
+    }
+  }
+
+  return allRows;
 }
 
 /**
@@ -165,6 +183,25 @@ function resolve(row: Record<string, any>, ...aliases: string[]): string {
   return "";
 }
 
+// ─── Unit & Brand Helpers ─────────────────────────────────────────────────────
+
+function extractUnitFromName(name: string): string {
+  const match = name.match(/\b(\d+(?:\.\d+)?\s*(?:kg|g|gm|gms|ml|l|ltr|litre|litres|pcs|pc|pack|s))\b/i);
+  return match ? match[1].toLowerCase().replace(/\s+/g, "") : "1pc";
+}
+
+function extractBrandFromName(name: string): string {
+  const words = name.trim().split(/\s+/);
+  if (words.length > 1) {
+    const firstTwo = `${words[0]} ${words[1]}`.toUpperCase();
+    if (["AMRUTH VENI", "RED LABEL", "FORTUNE SUNLITE", "ARIS DEO"].includes(firstTwo)) {
+      return firstTwo;
+    }
+    return words[0];
+  }
+  return "Generic";
+}
+
 // ─── Row Mapper ───────────────────────────────────────────────────────────────
 
 function generateDeterministicId(name: string, brand: string, rowIndex: number): string {
@@ -173,25 +210,94 @@ function generateDeterministicId(name: string, brand: string, rowIndex: number):
 }
 
 export function mapRowToProduct(row: Record<string, any>, rowIndex: number) {
-  const name = resolve(row, "name", "product_name", "item_name", "product", "item", "title", "productname");
+  // Resolve product name (PrintName from Excel or name/product_name)
+  const name = resolve(
+    row,
+    "printname",
+    "print_name",
+    "product_name",
+    "item_name",
+    "product",
+    "item",
+    "title",
+    "name",
+    "productname"
+  );
   if (!name) return null;
 
-  const category = resolve(row, "category", "cat", "type", "department", "section", "categoryname") || "Staples";
-  const brand = resolve(row, "brand", "brand_name", "manufacturer", "company", "make") || "Generic";
-  const unit = resolve(row, "unit", "unit_type", "measure", "weight", "size", "pack_size", "packsize", "qty") || "unit";
-  const basePriceStr = resolve(row, "base_price", "price", "mrp", "cost", "rate", "selling_price", "baseprice");
-  const barcode = resolve(row, "barcode", "ean", "upc", "sku", "code") || null;
-  const isActiveStr = resolve(row, "is_active", "active", "status", "available", "in_stock", "isactive");
-  const imageUrl = resolve(row, "image_url", "image", "img_url", "photo", "picture", "thumbnail", "imageurl") || null;
-  const emoji = resolve(row, "emoji", "icon") || "📦";
-  const description = resolve(row, "description", "desc", "details", "about") || "Imported product";
-  const productId =
-    resolve(row, "product_id", "id", "productid", "item_code") ||
-    generateDeterministicId(name, brand, rowIndex);
+  // Resolve category (from Category column or Sheet tab name fallback)
+  let category = resolve(
+    row,
+    "category",
+    "cat",
+    "type",
+    "department",
+    "section",
+    "categoryname"
+  );
+  if (!category || ["unknown", "sheet1"].includes(category.toLowerCase())) {
+    const sheetTab = row.__sheetName || "";
+    if (sheetTab && !["unknown", "sheet1"].includes(sheetTab.toLowerCase())) {
+      category = sheetTab;
+    } else {
+      category = category || "General";
+    }
+  }
 
+  // Resolve brand or auto-extract from product name
+  const brand =
+    resolve(row, "brand", "brand_name", "manufacturer", "company", "make") ||
+    extractBrandFromName(name);
+
+  // Resolve unit or auto-extract from product name (e.g. 50ml, 200ml, 1kg)
+  const unit =
+    resolve(row, "unit", "unit_type", "measure", "weight", "size", "pack_size", "packsize", "qty") ||
+    extractUnitFromName(name);
+
+  // Resolve base price / MRP
+  const basePriceStr = resolve(
+    row,
+    "mrp",
+    "base_price",
+    "price",
+    "cost",
+    "rate",
+    "selling_price",
+    "baseprice"
+  );
   const basePrice = parseFloat(basePriceStr.replace(/[^0-9.]/g, "")) || 0;
+
+  // Resolve barcode / code (Code or Barcode column)
+  const barcode = resolve(row, "code", "barcode", "ean", "upc", "sku", "ptc") || null;
+
+  // Resolve image URL (link column or image_url)
+  const imageUrl =
+    resolve(
+      row,
+      "link",
+      "image_url",
+      "image",
+      "img_url",
+      "photo",
+      "picture",
+      "thumbnail",
+      "imageurl",
+      "img_link"
+    ) || null;
+
+  const isActiveStr = resolve(row, "is_active", "active", "status", "available", "in_stock", "isactive");
   const isActive =
     !isActiveStr || ["true", "yes", "1", "active", "y"].includes(isActiveStr.toLowerCase());
+
+  const emoji = resolve(row, "emoji", "icon") || "📦";
+  const description =
+    resolve(row, "description", "desc", "details", "about") ||
+    `${brand} ${name} - ${category}`;
+
+  const productId =
+    barcode ||
+    resolve(row, "product_id", "id", "productid", "item_code", "ptc") ||
+    generateDeterministicId(name, brand, rowIndex);
 
   return {
     product_id: productId,
