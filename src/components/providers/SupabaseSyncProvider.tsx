@@ -2,6 +2,7 @@
 import { useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAppStore } from "@/store/app-store";
+import { syncGoogleSheetToSupabase } from "@/lib/googleSheetSync";
 import type { Order, OrderStatus } from "@/types";
 
 // ─── Browser Notification Helper ────────────────────────────────────────────
@@ -226,12 +227,40 @@ export function SupabaseSyncProvider({ children }: { children: React.ReactNode }
       }
     };
 
+    const syncSettlements = async () => {
+      try {
+        const { data: dbSettlements } = await supabase.from("settlement").select("*");
+        if (dbSettlements) {
+          const mappedSettlements = dbSettlements.map((s: any) => ({
+            id: s.settlement_id,
+            shopId: s.owner_id || "",
+            shopName: s.shop_name || "",
+            weekStart: s.week_start || "",
+            weekEnd: s.week_end || "",
+            totalOrders: s.total_orders || 0,
+            grossRevenue: Number(s.gross_revenue) || 0,
+            commissionRate: Number(s.commission_rate) || 8,
+            commissionAmount: Number(s.commission_amount) || 0,
+            deliveryFees: Number(s.delivery_fees) || 0,
+            platformFees: Number(s.platform_fees) || 0,
+            netPayout: Number(s.net_payout) || 0,
+            status: (s.status || "pending") as any,
+            processedAt: s.processed_at || s.created_at || undefined,
+          }));
+          useAppStore.getState().setSettlements(mappedSettlements);
+        }
+      } catch (err) {
+        console.error("Settlement sync error:", err);
+      }
+    };
+
     const syncData = async () => {
       await syncShops();
       await syncProducts();
       await syncCustomers();
       await syncOrders();
       await syncAdPosters();
+      await syncSettlements();
     };
 
     // Trigger initial loading
@@ -288,6 +317,81 @@ export function SupabaseSyncProvider({ children }: { children: React.ReactNode }
       supabase.removeChannel(productsChannel);
       supabase.removeChannel(adsChannel);
     };
+  }, []);
+
+  const {setGoogleSheetsUrl, setSheetSyncRunning, setSheetSyncResult, googleSheetsUrl } = useAppStore();
+  const sheetSyncRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // ── Google Sheets Auto-sync ──────────────────────────────────────────────
+  useEffect(() => {
+    // Restore saved URL from localStorage on first load
+    const savedUrl = localStorage.getItem("grabu_sheet_url") || "";
+    if (savedUrl) setGoogleSheetsUrl(savedUrl);
+
+    const runSheetSync = async (url: string) => {
+      if (!url) return;
+      setSheetSyncRunning(true);
+      try {
+        const result = await syncGoogleSheetToSupabase(url);
+        setSheetSyncResult(result);
+        // After a successful sync, also refresh the products in the store
+        if (result.inserted > 0) {
+          const { data: dbMP } = await supabase.from("master_product").select("*");
+          if (dbMP) {
+            const mappedProducts = dbMP.map((mp: any) => ({
+              id: mp.product_id,
+              name: mp.name,
+              category: mp.category,
+              brand: mp.brand,
+              unit: (mp.unit || "kg") as any,
+              basePrice: Number(mp.base_price),
+              offerPrice: Number(mp.base_price),
+              barcode: mp.barcode || "",
+              sku: mp.product_id,
+              stockQuantity: 100,
+              status: mp.is_active ? ("active" as const) : ("inactive" as const),
+              images: [mp.image_url || mp.emoji || "📦"],
+              createdAt: mp.created_at,
+            }));
+            useAppStore.getState().setProducts(mappedProducts);
+          }
+        }
+      } finally {
+        setSheetSyncRunning(false);
+      }
+    };
+
+    // Watch for URL changes and persist to localStorage
+    const unsubscribe = useAppStore.subscribe((state, prevState) => {
+      if (state.googleSheetsUrl !== prevState.googleSheetsUrl) {
+        localStorage.setItem("grabu_sheet_url", state.googleSheetsUrl);
+        // Clear old interval and restart with new URL
+        if (sheetSyncRef.current) clearInterval(sheetSyncRef.current);
+        if (state.googleSheetsUrl) {
+          runSheetSync(state.googleSheetsUrl);
+          sheetSyncRef.current = setInterval(
+            () => runSheetSync(state.googleSheetsUrl),
+            5 * 60 * 1000 // every 5 minutes
+          );
+        }
+      }
+    });
+
+    // Initial run if URL was already saved
+    const initialUrl = localStorage.getItem("grabu_sheet_url") || "";
+    if (initialUrl) {
+      runSheetSync(initialUrl);
+      sheetSyncRef.current = setInterval(
+        () => runSheetSync(useAppStore.getState().googleSheetsUrl),
+        5 * 60 * 1000
+      );
+    }
+
+    return () => {
+      unsubscribe();
+      if (sheetSyncRef.current) clearInterval(sheetSyncRef.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return <>{children}</>;

@@ -1,7 +1,23 @@
 "use client";
 import { create } from "zustand";
 import type { Order, Product, Shop, Settlement, PlatformSettings, Customer, PromoCode, AdPoster } from "@/types";
-import { mockOrders, mockProducts, mockShops, mockSettlements, mockSettings, mockCustomers, mockPromoCodes } from "@/data/mock";
+import type { SheetSyncResult } from "@/lib/googleSheetSync";
+
+const defaultSettings: PlatformSettings = {
+  deliveryRadius: 5,
+  minimumOrderAmount: 99,
+  platformFee: 5,
+  deliveryFee: 25,
+  defaultCommission: 8,
+  platformName: "GrabU",
+  supportEmail: "support@grabu.app",
+  partnerEmail: "partners@grabu.app",
+  supportPhone: "+91 98765 43210",
+  notifyNewOrder: true,
+  notifyNewShop: true,
+  notifySettlement: true,
+  notifyLowStock: true,
+};
 
 interface AppState {
   // Orders
@@ -28,6 +44,7 @@ interface AppState {
 
   // Settlements
   settlements: Settlement[];
+  setSettlements: (settlements: Settlement[]) => void;
 
   // Settings
   settings: PlatformSettings;
@@ -57,10 +74,18 @@ interface AppState {
   setSidebarOpen: (open: boolean) => void;
   activeOrderId: string | null;
   setActiveOrderId: (id: string | null) => void;
+
+  // Google Sheets Sync
+  googleSheetsUrl: string;
+  setGoogleSheetsUrl: (url: string) => void;
+  sheetSyncRunning: boolean;
+  setSheetSyncRunning: (running: boolean) => void;
+  sheetSyncResult: SheetSyncResult | null;
+  setSheetSyncResult: (result: SheetSyncResult | null) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
-  orders: mockOrders,
+  orders: [],
   setOrders: (orders) => set({ orders }),
   updateOrderStatus: (id, status) => {
     let statusStr = "placed";
@@ -88,7 +113,7 @@ export const useAppStore = create<AppState>((set) => ({
     }));
   },
 
-  products: mockProducts,
+  products: [],
   setProducts: (products) => set({ products }),
   addProduct: (product) => {
     const isUrl = product.images?.[0]?.startsWith("http");
@@ -138,7 +163,7 @@ export const useAppStore = create<AppState>((set) => ({
     set((s) => ({ products: s.products.filter((p) => p.id !== id) }));
   },
 
-  shops: mockShops,
+  shops: [],
   setShops: (shops) => set({ shops }),
   approveShop: (id, commissionRate) => {
     import("@/lib/supabase").then(({ supabase }) => {
@@ -246,13 +271,14 @@ export const useAppStore = create<AppState>((set) => ({
     set((s) => ({ shops: [shop, ...s.shops] }));
   },
 
-  settlements: mockSettlements,
+  settlements: [],
+  setSettlements: (settlements) => set({ settlements }),
 
-  settings: mockSettings,
+  settings: defaultSettings,
   updateSettings: (updates) =>
     set((s) => ({ settings: { ...s.settings, ...updates } })),
 
-  customers: mockCustomers,
+  customers: [],
   setCustomers: (customers) => set({ customers }),
   banCustomer: (id) =>
     set((s) => ({
@@ -263,7 +289,7 @@ export const useAppStore = create<AppState>((set) => ({
       customers: s.customers.map((c) => (c.id === id ? { ...c, status: "active" } : c)),
     })),
 
-  promoCodes: mockPromoCodes,
+  promoCodes: [],
   addPromoCode: (promo) =>
     set((s) => ({ promoCodes: [promo, ...s.promoCodes] })),
   togglePromoCodeStatus: (id) =>
@@ -276,17 +302,7 @@ export const useAppStore = create<AppState>((set) => ({
     set((s) => ({ promoCodes: s.promoCodes.filter((p) => p.id !== id) })),
 
   // Ad Posters implementation
-  adPosters: [
-    {
-      id: "ad-1",
-      title: "Fresh Vegetables 20% Off!",
-      imageUrl: "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=600&q=80",
-      isActive: true,
-      targetLocation: "All",
-      expiresAt: null,
-      createdAt: new Date().toISOString(),
-    }
-  ],
+  adPosters: [],
   setAdPosters: (adPosters) => set({ adPosters }),
   addAdPoster: (ad) => {
     import("@/lib/supabase").then(({ supabase }) => {
@@ -368,4 +384,12 @@ export const useAppStore = create<AppState>((set) => ({
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
   activeOrderId: null,
   setActiveOrderId: (id) => set({ activeOrderId: id }),
+
+  // Google Sheets Sync state
+  googleSheetsUrl: "",
+  setGoogleSheetsUrl: (url) => set({ googleSheetsUrl: url }),
+  sheetSyncRunning: false,
+  setSheetSyncRunning: (running) => set({ sheetSyncRunning: running }),
+  sheetSyncResult: null,
+  setSheetSyncResult: (result) => set({ sheetSyncResult: result }),
 }));
